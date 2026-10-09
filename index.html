@@ -462,6 +462,13 @@ function saveEditing(){
     }
     petImg.addEventListener('pointerup', endDrag);
     petImg.addEventListener('pointercancel', endDrag);
+
+    // 每60秒、点击、鼠标靠近都切换提示语（对话框）
+    setInterval(function(){ show(); }, 60000);
+    wrap.addEventListener('click', show);
+    wrap.addEventListener('mouseenter', show);
+    // 首次显示欢迎语
+    setTimeout(show, 1000);
   })();
   goToday();
 
