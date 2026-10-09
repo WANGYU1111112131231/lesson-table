@@ -68,9 +68,9 @@
     background:linear-gradient(135deg,#dba9b5,#c98a96);
     padding:10px 0;border-radius:12px;font-size:14px;
   }
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:start}
   .cell{
-    min-height:104px;background:#faf3ec;border-radius:12px;
+    min-height:0;background:#faf3ec;border-radius:12px;
     border:1px solid transparent;padding:7px;cursor:pointer;
     display:flex;flex-direction:column;transition:.18s;position:relative;
   }
@@ -90,9 +90,9 @@
   }
   .pre-line .lb{display:inline-block;font-size:8.5px;color:#fff;border-radius:4px;padding:0 3px;margin-right:3px}
   .lb-am{background:#8fb8d6}.lb-pm{background:#dda276}.lb-ni{background:#ad8bc4}
-  .cell.empty-pre{color:#d4b6ab;font-size:9.5px}
+  .cell.empty-pre{color:#d4b6ab;font-size:9.5px;white-space:nowrap;line-height:1.6}
   @media(max-width:640px){
-    .cell{min-height:72px;padding:5px}
+    .cell{min-height:0;padding:5px}
     .preview{gap:2px;margin-top:3px}
     .pre-line{font-size:8px;padding:1px 3px;-webkit-line-clamp:3}
     .daynum{font-size:13px}
@@ -137,11 +137,11 @@
 
   /* ---- 宠物猫 ---- */
   .pet-wrap{
-    position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:80;cursor:pointer;
+    position:fixed;left:auto;top:auto;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:80;cursor:grab;
     display:flex;align-items:flex-end;flex-direction:column;user-select:none;
-    -webkit-user-select:none;transition:transform .25s ease;
+    -webkit-user-select:none;touch-action:none;
   }
-  .pet-wrap:hover{transform:translateY(-4px)}
+  .pet-wrap.dragging{cursor:grabbing;transition:none}
   .pet-bubble{
     background:#fff;border:1px solid #f0d8ce;color:var(--text-dark);
     border-radius:16px 16px 4px 16px;padding:8px 13px;font-size:13.5px;
@@ -401,14 +401,71 @@ function saveEditing(){
       clearTimeout(bubbleTimer);
       bubbleTimer=setTimeout(function(){ bubble.classList.remove('show'); },4500);
     }
-    // 每60秒、鼠标靠近、点击 都切换提示语
-    setInterval(function(){ show(); },60000);
-    wrap.addEventListener('mouseenter', show);
-    wrap.addEventListener('click', show);
-    // 首次显示欢迎
-    setTimeout(show, 1500);
-  })();
+    /* ===== 猫咪可拖动 ===== */
+    var petImg=document.getElementById('petImg');
+    var drag=false, moved=false, ox=0, oy=0;
+    var SAVE_KEY='lesson_pet_pos';
 
+    function useLeftTop(){
+      var rect=wrap.getBoundingClientRect();
+      wrap.style.left=rect.left+'px';
+      wrap.style.top=rect.top+'px';
+      wrap.style.right='auto';
+      wrap.style.bottom='auto';
+    }
+
+    // 恢复保存的位置
+    try{
+      var saved=JSON.parse(localStorage.getItem(SAVE_KEY));
+      if(saved && typeof saved.left==='number'){
+        wrap.style.left=saved.left+'px';
+        wrap.style.top=saved.top+'px';
+        wrap.style.right='auto';
+        wrap.style.bottom='auto';
+      }
+    }catch(e){}
+
+    petImg.addEventListener('pointerdown', function(e){
+      drag=true; moved=false;
+      var r=wrap.getBoundingClientRect();
+      ox=e.clientX - r.left;
+      oy=e.clientY - r.top;
+      useLeftTop();
+      wrap.classList.add('dragging');
+      try{ petImg.setPointerCapture(e.pointerId); }catch(err){}
+      e.stopPropagation();
+    });
+
+    petImg.addEventListener('pointermove', function(e){
+      if(!drag) return;
+      if(Math.abs(e.movementX)>1 || Math.abs(e.movementY)>1) moved=true;
+      wrap.style.left=(e.clientX-ox)+'px';
+      wrap.style.top=(e.clientY-oy)+'px';
+    });
+
+    function endDrag(e){
+      if(!drag) return;
+      drag=false;
+      wrap.classList.remove('dragging');
+      // 限制在视口内
+      var w=wrap.offsetWidth, h=wrap.offsetHeight;
+      var vw=window.innerWidth, vh=window.innerHeight;
+      var l=parseFloat(wrap.style.left)||0, t=parseFloat(wrap.style.top)||0;
+      l=Math.max(0, Math.min(l, vw-w));
+      t=Math.max(0, Math.min(t, vh-h));
+      wrap.style.left=l+'px'; wrap.style.top=t+'px';
+      try{
+        localStorage.setItem(SAVE_KEY, JSON.stringify({left:l, top:t}));
+      }catch(err){}
+    }
+    petImg.addEventListener('pointerup', endDrag);
+    petImg.addEventListener('pointercancel', endDrag);
+
+    // 拖动后不触发点击提示语
+    wrap.addEventListener('click', function(e){
+      if(moved){ moved=false; e.stopPropagation(); return; }
+    });
+  })();
   goToday();
 
 })();
